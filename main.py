@@ -1347,8 +1347,7 @@ def main():
     """Main entry point"""
     bot = PillarDigitalBankBot()
     
-    # Run the bot
-   import asyncio
+    import asyncio
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
@@ -1357,3 +1356,6 @@ def main():
         pass
     finally:
         loop.close()
+
+if __name__ == "__main__":
+    main()

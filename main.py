@@ -1351,27 +1351,28 @@ class SimpleHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b"Bot is alive")
+    def log_message(self, format, *args):
+        return 
 
 def run_health_check():
-    # Render အတွက် လိုအပ်တဲ့ Port ဖွင့်ပေးခြင်း
     port = int(os.environ.get("PORT", 10000))
     server = HTTPServer(('0.0.0.0', port), SimpleHandler)
     server.serve_forever()
 
 def main():
-    # Health check ကို နောက်ကွယ်မှာ run ပါ (Render က Bot ကို ပိတ်မချဖို့ ဖြစ်ပါတယ်)
+    # 1. Render အတွက် Port ဖွင့်ခြင်း
     threading.Thread(target=run_health_check, daemon=True).start()
     
+    # 2. Bot ကို run ခြင်း
     bot = PillarDigitalBankBot()
-    import asyncio
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    
     try:
-        loop.run_until_complete(bot.run())
+        # Loop conflict မဖြစ်အောင် asyncio.run ကို သုံးပါသည်
+        asyncio.run(bot.run())
+    except (KeyboardInterrupt, SystemExit):
+        pass
     except Exception as e:
-        print(f"Bot Error: {e}")
-    finally:
-        loop.close()
+        print(f"❌ Critical Error: {e}")
 
 if __name__ == "__main__":
     main()

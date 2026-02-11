@@ -1342,18 +1342,34 @@ class PillarDigitalBankBot:
             traceback.print_exc()
             sys.exit(1)
 
-# ==================== MAIN ENTRY POINT ====================
+import os
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
+
+class SimpleHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot is alive")
+
+def run_health_check():
+    # Render အတွက် လိုအပ်တဲ့ Port ဖွင့်ပေးခြင်း
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(('0.0.0.0', port), SimpleHandler)
+    server.serve_forever()
+
 def main():
-    """Main entry point"""
-    bot = PillarDigitalBankBot()
+    # Health check ကို နောက်ကွယ်မှာ run ပါ (Render က Bot ကို ပိတ်မချဖို့ ဖြစ်ပါတယ်)
+    threading.Thread(target=run_health_check, daemon=True).start()
     
+    bot = PillarDigitalBankBot()
     import asyncio
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
         loop.run_until_complete(bot.run())
-    except KeyboardInterrupt:
-        pass
+    except Exception as e:
+        print(f"Bot Error: {e}")
     finally:
         loop.close()
 

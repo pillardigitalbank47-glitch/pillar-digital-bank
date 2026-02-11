@@ -1348,7 +1348,12 @@ def main():
     bot = PillarDigitalBankBot()
     
     # Run the bot
-    asyncio.run(bot.run())
-
-if __name__ == "__main__":
-    main()
+   import asyncio
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(bot.run())
+    except KeyboardInterrupt:
+        pass
+    finally:
+        loop.close()

@@ -1,0 +1,6 @@
+python-telegram-bot
+httpx
+psycopg2-binary
+pytz
+apscheduler
+gunicorn

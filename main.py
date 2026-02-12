@@ -1,7 +1,19 @@
-#!/usr/bin/env python3
 import logging
 import os
+import secrets
+import hashlib
+from datetime import datetime, timedelta
+from decimal import Decimal
+import pytz
 
+# Scheduler for background tasks (Interest calculation)
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
+# PostgreSQL Database connector
+import psycopg2
+from psycopg2.extras import RealDictCursor
+
+# Original Telegram imports
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.constants import ParseMode
 from telegram.request import HTTPXRequest

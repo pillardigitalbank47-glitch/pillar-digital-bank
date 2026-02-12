@@ -39,6 +39,37 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+# =========================
+# Helper Functions
+# =========================
+
+def is_admin(user_id: int) -> bool:
+    return user_id == ADMIN_ID
+
+# =========================
+# Keyboard Builders
+# =========================
+
+from telegram import ReplyKeyboardMarkup
+
+# 👤 User Main Menu
+def user_main_menu():
+    keyboard = [
+        ["💰 Balance", "💳 Deposit"],
+        ["🏧 Withdraw", "📜 History"],
+        ["⚙ Settings"]
+    ]
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+
+# 👑 Admin Main Menu
+def admin_main_menu():
+    keyboard = [
+        ["📥 Pending Deposits", "📤 Pending Withdrawals"],
+        ["👥 Users", "📊 Reports"],
+        ["🧾 Audit Logs", "⚙ Admin Settings"]
+    ]
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
 # =========================
 # Handlers
@@ -61,7 +92,19 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Secure, simple, and smart banking starts here.",
         parse_mode=ParseMode.HTML,
     )
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
 
+    if is_admin(user_id):
+        await update.message.reply_text(
+            "👑 Admin Panel Initialized.",
+            reply_markup=admin_main_menu()
+        )
+    else:
+        await update.message.reply_text(
+            "🏦 Welcome to Pillar Digital Bank.",
+            reply_markup=user_main_menu()
+        )
 
 async def health_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id == ADMIN_ID:

@@ -41,6 +41,92 @@ if not BOT_TOKEN:
 if not WEBHOOK_URL:
     raise RuntimeError("WEBHOOK_URL not set")
 
+# =========================
+# Database Manager
+# =========================
+
+class DatabaseManager:
+    """Manages PostgreSQL database connection and operations"""
+    def __init__(self):
+        self.conn = None
+        self.cursor = None
+        self.connect()
+
+    def connect(self):
+        """Establish database connection"""
+        try:
+            if os.getenv("DATABASE_URL"):
+                self.conn = psycopg2.connect(os.getenv("DATABASE_URL"))
+                self.cursor = self.conn.cursor(cursor_factory=RealDictCursor)
+                self.init_tables()
+                print("✅ Database Connected")
+            else:
+                print("⚠️ No DATABASE_URL found. Using temporary storage.")
+        except Exception as e:
+            print(f"❌ DB Error: {e}")
+
+    def init_tables(self):
+        """Create necessary tables if they don't exist"""
+        if not self.cursor: return
+
+        # Users Table
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                telegram_id BIGINT PRIMARY KEY,
+                full_name VARCHAR(255),
+                phone VARCHAR(20),
+                pin_hash VARCHAR(255),
+                referral_code VARCHAR(20),
+                status VARCHAR(20) DEFAULT 'PENDING',
+                balance DECIMAL(15,2) DEFAULT 0.00,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+
+        # Savings Plans Table
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS savings_plans (
+                id SERIAL PRIMARY KEY,
+                user_id BIGINT,
+                plan_name VARCHAR(50),
+                amount DECIMAL(15,2),
+                start_date DATE,
+                end_date DATE,
+                daily_rate DECIMAL(5,4),
+                status VARCHAR(20) DEFAULT 'ACTIVE'
+            )
+        """)
+        self.conn.commit()
+
+    def get_user(self, tid):
+        """Retrieve user data by Telegram ID"""
+        if not self.cursor: return None
+        self.cursor.execute("SELECT * FROM users WHERE telegram_id = %s", (tid,))
+        return self.cursor.fetchone()
+
+    def create_user(self, tid, name, phone, pin_hash):
+        """Register a new user"""
+        if not self.cursor: return False
+        try:
+            self.cursor.execute("""
+                INSERT INTO users (telegram_id, full_name, phone, pin_hash, status)
+                VALUES (%s, %s, %s, %s, 'PENDING')
+            """, (tid, name, phone, pin_hash))
+            self.conn.commit()
+            return True
+        except:
+            return False
+
+    def update_balance(self, tid, amount):
+        """Update user balance (add or subtract)"""
+        if not self.cursor: return
+        self.cursor.execute("""
+            UPDATE users SET balance = balance + %s WHERE telegram_id = %s
+        """, (amount, tid))
+        self.conn.commit()
+
+# Initialize DB globally
+db = DatabaseManager()
 
 # =========================
 # Logging Setup
@@ -224,6 +310,37 @@ def main():
     app.add_handler(CommandHandler("health", health_check))
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, menu_router))
+
+    # =========================
+    # Setup Scheduler (NY Time 4:30 PM)
+    # =========================
+    scheduler = AsyncIOScheduler(timezone=pytz.timezone("America/New_York"))
+    
+    async def interest_job():
+        """Calculates and adds interest to users"""
+        logger.info("Running Interest Calculation Job...")
+        # Logic to calculate interest goes here
+        # For now, just logging
+        pass
+
+    # Run daily at 4:30 PM
+    scheduler.add_job(interest_job, 'cron', hour=16, minute=30)
+    scheduler.start()
+    
+    logger.info("Scheduler started.")
+
+    # =========================
+    # Webhook Setup
+    # =========================
+    logger.info("Starting webhook server...")
+
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}",
+        url_path=BOT_TOKEN,
+        drop_pending_updates=True,
+    )
 
     # =========================
     # Webhook Setup

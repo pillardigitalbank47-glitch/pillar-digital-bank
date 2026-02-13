@@ -30,6 +30,7 @@ from telegram.ext import (
     ConversationHandler,
     ContextTypes,
     filters,
+    DictPersistence  # <--- Import for Looping Fix
 )
 
 # =========================
@@ -406,18 +407,14 @@ class SecurityUtils:
     def validate_phone(phone: str) -> bool:
         """Validate US/Canada phone numbers"""
         phone = phone.strip()
-        
-        # Remove common separators for validation
         clean_phone = re.sub(r'[\s\-\(\)]', '', phone)
-        
         patterns = [
-            r'^\+1\d{10}$',           # +14155552671
-            r'^\(\d{3}\)\s?\d{3}-\d{4}$',  # (212) 555-1234
-            r'^\d{3}-\d{3}-\d{4}$',    # 305-555-6789
-            r'^\d{10}$',              # 8175554321
-            r'^1\d{10}$'             # 14155552671
+            r'^\+1\d{10}$',
+            r'^\(\d{3}\)\s?\d{3}-\d{4}$',
+            r'^\d{3}-\d{3}-\d{4}$',
+            r'^\d{10}$',
+            r'^1\d{10}$'
         ]
-        
         return any(re.match(p, phone) for p in patterns)
     
     @staticmethod
@@ -566,14 +563,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         balance = account['balance'] if account else 0
         available = account['available_balance'] if account else 0
         
-        # Fixed Syntax Here
         await update.message.reply_text(
             f"🏦 *Welcome back, {user_data['full_name']}!*\n\n"
             f"💰 *Balance:* `${balance:.2f}`\n"
             f"💳 *Available:* `${available:.2f}`\n\n"
             f"📊 *Today's Stats:*\n"
             f"• NY Time: {datetime.now(NY_TZ).strftime('%I:%M %p')}\n"
-            f"• Banking: {'🟢 Open' if _is_banking_hours() else '🔴 Closed'}\n\n" # <--- Fixed here
+            f"• Banking: {'🟢 Open' if _is_banking_hours() else '🔴 Closed'}\n\n"
             f"Select an option below:",
             parse_mode=ParseMode.MARKDOWN,
             reply_markup=user_main_menu()
@@ -640,7 +636,7 @@ async def register_fullname(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• `(212) 555-1234`\n"
         "• `305-555-6789`\n"
         "• `8175554321`\n\n"
-        "Type /cancel to cancel.",
+        "Type /cancel.",
         parse_mode=ParseMode.MARKDOWN
     )
     return PHONE
@@ -750,6 +746,25 @@ async def register_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
             description=f"New user registered: {full_name}"
         )
         
+        # =========================
+        # Notify Admin Automatically
+        # =========================
+        try:
+            await context.bot.send_message(
+                chat_id=ADMIN_ID,
+                text=(
+                    f"🆕 *New User Registration*\n\n"
+                    f"👤 *Name:* {full_name}\n"
+                    f"🆔 *ID:* `{user_id}`\n"
+                    f"📱 *Phone:* `{SecurityUtils.mask_phone(phone)}`\n"
+                    f"📅 *Time:* {datetime.now(NY_TZ).strftime('%Y-%m-%d %H:%M')}\n\n"
+                    f"Use /pending to approve."
+                ),
+                parse_mode=ParseMode.MARKDOWN
+            )
+        except Exception as e:
+            logger.error(f"Failed to notify admin: {e}")
+
         await update.message.reply_text(
             "✅ *Registration Successful!*\n\n"
             "Your account is now **PENDING ADMIN APPROVAL**.\n\n"
@@ -1051,24 +1066,6 @@ async def handle_support(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode=ParseMode.MARKDOWN
     )
 
-async def handle_pending_deposits(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("📥 Pending deposits coming soon.", reply_markup=back_to_menu_keyboard())
-
-async def handle_pending_withdrawals(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("📤 Pending withdrawals coming soon.", reply_markup=back_to_menu_keyboard())
-
-async def handle_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("👥 User management coming soon.", reply_markup=back_to_menu_keyboard())
-
-async def handle_reports(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("📊 Reports coming soon.", reply_markup=back_to_menu_keyboard())
-
-async def handle_audit_logs(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🧾 Audit logs coming soon.", reply_markup=back_to_menu_keyboard())
-
-async def handle_admin_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("⚙ Admin settings coming soon.", reply_markup=back_to_menu_keyboard())
-
 # =========================
 # Menu Router
 # =========================
@@ -1125,6 +1122,28 @@ async def menu_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await handle_support(update, context)
         elif text == "🔙 Back to Main Menu":
             await start(update, context)
+
+# =========================
+# Placeholder Admin Handlers
+# =========================
+
+async def handle_pending_deposits(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("📥 Pending deposits coming soon.", reply_markup=back_to_menu_keyboard())
+
+async def handle_pending_withdrawals(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("📤 Pending withdrawals coming soon.", reply_markup=back_to_menu_keyboard())
+
+async def handle_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("👥 User management coming soon.", reply_markup=back_to_menu_keyboard())
+
+async def handle_reports(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("📊 Reports coming soon.", reply_markup=back_to_menu_keyboard())
+
+async def handle_audit_logs(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("🧾 Audit logs coming soon.", reply_markup=back_to_menu_keyboard())
+
+async def handle_admin_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("⚙ Admin settings coming soon.", reply_markup=back_to_menu_keyboard())
 
 async def health_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Health check endpoint"""
@@ -1225,11 +1244,16 @@ def main():
     )
     
     # =========================
+    # Setup Persistence (Fixes Looping)
+    # =========================
+    # Save data across restarts to prevent 'please register' loops
+    persistence = DictPersistence()
+    
+    # =========================
     # Setup Scheduler (NY Time 4:30 PM)
     # =========================
     scheduler = AsyncIOScheduler(timezone=NY_TZ)
     
-    # Wrapper function to start scheduler inside the running loop
     async def start_scheduler(application: Application):
         scheduler.start()
         logger.info("✅ Scheduler started successfully - Daily interest at 4:30 PM NY Time")
@@ -1241,19 +1265,20 @@ def main():
         Application.builder()
         .token(BOT_TOKEN)
         .request(request)
-        .post_init(start_scheduler) # Start scheduler when bot starts
+        .persistence(persistence)  # <--- Persistence added here
+        .post_init(start_scheduler) # <--- Scheduler wrapper added here
         .build()
     )
-
+    
     # =========================
     # Handlers
     # =========================
-
+    
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("health", health_check))
     app.add_handler(CommandHandler("pending", admin_pending))
     app.add_handler(CommandHandler("seed", seed_test_users))
-
+    
     # =========================
     # Registration Conversation
     # =========================

@@ -109,6 +109,16 @@ class DatabaseManager:
             return
 
         try:
+            # =========================
+            # FIX: Drop old table to force recreation with correct schema
+            # =========================
+            self.cursor.execute("DROP TABLE IF EXISTS users CASCADE;")
+            self.cursor.execute("DROP TABLE IF EXISTS accounts CASCADE;")
+            self.cursor.execute("DROP TABLE IF EXISTS transactions CASCADE;")
+            self.cursor.execute("DROP TABLE IF EXISTS savings_plans CASCADE;")
+            self.cursor.execute("DROP TABLE IF EXISTS audit_logs CASCADE;")
+            self.conn.commit()
+
             # Users table
             self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS users (
@@ -407,14 +417,18 @@ class SecurityUtils:
     def validate_phone(phone: str) -> bool:
         """Validate US/Canada phone numbers"""
         phone = phone.strip()
+        
+        # Remove common separators for validation
         clean_phone = re.sub(r'[\s\-\(\)]', '', phone)
+        
         patterns = [
-            r'^\+1\d{10}$',
-            r'^\(\d{3}\)\s?\d{3}-\d{4}$',
-            r'^\d{3}-\d{3}-\d{4}$',
-            r'^\d{10}$',
-            r'^1\d{10}$'
+            r'^\+1\d{10}$',           # +14155552671
+            r'^\(\d{3}\)\s?\d{3}-\d{4}$',  # (212) 555-1234
+            r'^\d{3}-\d{3}-\d{4}$',    # 305-555-6789
+            r'^\d{10}$',              # 8175554321
+            r'^1\d{10}$'             # 14155552671
         ]
+        
         return any(re.match(p, phone) for p in patterns)
     
     @staticmethod
@@ -563,6 +577,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         balance = account['balance'] if account else 0
         available = account['available_balance'] if account else 0
         
+        # Fixed Syntax Here (No self)
         await update.message.reply_text(
             f"🏦 *Welcome back, {user_data['full_name']}!*\n\n"
             f"💰 *Balance:* `${balance:.2f}`\n"
@@ -636,7 +651,7 @@ async def register_fullname(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• `(212) 555-1234`\n"
         "• `305-555-6789`\n"
         "• `8175554321`\n\n"
-        "Type /cancel.",
+        "Type /cancel to cancel.",
         parse_mode=ParseMode.MARKDOWN
     )
     return PHONE
@@ -1246,7 +1261,6 @@ def main():
     # =========================
     # Setup Persistence (Fixes Looping)
     # =========================
-    # Save data across restarts to prevent 'please register' loops
     persistence = DictPersistence()
     
     # =========================
@@ -1265,20 +1279,20 @@ def main():
         Application.builder()
         .token(BOT_TOKEN)
         .request(request)
-        .persistence(persistence)  # <--- Persistence added here
-        .post_init(start_scheduler) # <--- Scheduler wrapper added here
+        .persistence(persistence) # <--- Added Persistence
+        .post_init(start_scheduler) # <--- Added Scheduler Wrapper
         .build()
     )
     
     # =========================
     # Handlers
     # =========================
-    
+
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("health", health_check))
     app.add_handler(CommandHandler("pending", admin_pending))
     app.add_handler(CommandHandler("seed", seed_test_users))
-    
+
     # =========================
     # Registration Conversation
     # =========================

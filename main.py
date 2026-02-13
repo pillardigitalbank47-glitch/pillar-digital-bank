@@ -576,8 +576,6 @@ db = DatabaseManager()
 # =========================
 
 class EmailService:
-    """Async email service for OTP verification"""
-    
     @staticmethod
     async def send_otp_email(recipient_email: str, otp_code: str, full_name: str) -> Tuple[bool, str]:
         """Send OTP verification email asynchronously"""
@@ -589,44 +587,39 @@ class EmailService:
             
             html_content = f"""
             <html>
-                <body style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-                    <div style="max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px; color: white;">
-                        <h1 style="text-align: center; margin-bottom: 20px;">🏦 Pillar Digital Bank</h1>
-                        <h2 style="text-align: center;">Email Verification</h2>
-                        <div style="background: white; padding: 30px; border-radius: 10px; color: #333;">
-                            <p style="font-size: 16px;">Hello <strong>{full_name}</strong>,</p>
-                            <p style="font-size: 16px;">Thank you for registering with Pillar Digital Bank. Please use the following verification code to complete your registration:</p>
-                            <div style="text-align: center; margin: 30px 0;">
-                                <span style="font-size: 36px; font-weight: bold; letter-spacing: 10px; color: #667eea;">{otp_code}</span>
-                            </div>
-                            <p style="font-size: 14px; color: #666;">This code will expire in <strong>{OTP_EXPIRY_MINUTES} minutes</strong>.</p>
-                            <p style="font-size: 14px; color: #666;">If you didn't request this, please ignore this email.</p>
-                            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-                            <p style="font-size: 12px; color: #999; text-align: center;">
-                                © 2026 Pillar Digital Bank. All rights reserved.<br>
-                                This is an automated message, please do not reply.
-                            </p>
-                        </div>
-                    </div>
+                <body style="font-family: Arial, sans-serif; padding: 20px;">
+                    <h2>Email Verification</h2>
+                    <p>Hello {full_name},</p>
+                    <p>Your verification code is:</p>
+                    <h1 style="font-size: 32px; letter-spacing: 5px;">{otp_code}</h1>
+                    <p>Valid for {OTP_EXPIRY_MINUTES} minutes.</p>
                 </body>
             </html>
             """
             
-            message.set_content(f"Your OTP code is: {otp_code}. Valid for {OTP_EXPIRY_MINUTES} minutes.")
+            message.set_content(f"Your OTP code is: {otp_code}")
             message.add_alternative(html_content, subtype="html")
             
+            # Add timeout and retry
             await aiosmtplib.send(
                 message,
                 hostname=SMTP_SERVER,
                 port=SMTP_PORT,
                 start_tls=True,
                 username=SENDER_EMAIL,
-                password=EMAIL_APP_PASSWORD
+                password=EMAIL_APP_PASSWORD,
+                timeout=30
             )
             
             logger.info(f"✅ OTP email sent to {recipient_email}")
             return True, "Email sent successfully"
             
+        except aiosmtplib.SMTPAuthenticationError:
+            logger.error("❌ SMTP Authentication failed - Check App Password")
+            return False, "Email authentication failed. Check App Password."
+        except aiosmtplib.SMTPException as e:
+            logger.error(f"❌ SMTP Error: {e}")
+            return False, f"SMTP Error: {str(e)}"
         except Exception as e:
             logger.error(f"❌ Failed to send email: {e}")
             return False, f"Failed to send email: {str(e)}"

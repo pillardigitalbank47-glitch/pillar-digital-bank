@@ -1,6 +1,0 @@
-# လက်ရှိ file ကိုဖွင့်ပြီး အောက်ပါအတိုင်းရေးပါ
-python-telegram-bot[webhooks]==22.6
-apscheduler==3.11.2
-psycopg2-binary==2.9.11
-pytz==2025.2
-aiosmtplib==3.2.0

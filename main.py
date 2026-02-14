@@ -1,14 +1,19 @@
 # main.py
 import os
 import logging
-from flask import Flask
 
-app = Flask(__name__)
+# Flask မသုံးဘဲ simple HTTP server နဲ့သုံးမယ်
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
-@app.route('/')
-def health_check():
-    return "Bot is ready for new code!"
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/html')
+        self.end_headers()
+        self.wfile.write(b"Bot is ready for new code!")
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
+    print(f"Starting server on port {port}...")
+    server.serve_forever()

@@ -2,4 +2,4 @@ python-telegram-bot[webhooks]==22.6
 apscheduler==3.11.2
 psycopg2-binary==2.9.11
 pytz==2025.2
-aiosmtplib==3.2.0
+flask==3.1.0
